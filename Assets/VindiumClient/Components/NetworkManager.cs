@@ -57,11 +57,16 @@ public class NetworkManager : MonoBehaviour
 
         if (autoConnect)
         {
-            ConnectToServer();
+            Connect();
         }
 
         StartCoroutine(EntitySpawnQueue());
         StartCoroutine(EntityUpdateQueue());
+    }
+
+    private void OnApplicationQuit()
+    {
+        Disconnect();
     }
 
     private IEnumerator EntitySpawnQueue()
@@ -108,9 +113,14 @@ public class NetworkManager : MonoBehaviour
         }
     }
 
-    public void ConnectToServer()
+    private void Connect()
     {
         tcp.Connect();
+    }
+
+    private void Disconnect()
+    {
+        tcp.Disconnect();
     }
 
     private void SpawnEntity(string entityId)

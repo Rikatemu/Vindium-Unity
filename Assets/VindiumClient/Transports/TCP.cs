@@ -22,6 +22,14 @@ public class TCP
         var test = socket.BeginConnect(NetworkManager.instance.ip, NetworkManager.instance.port, ConnectCallback, socket);
     }
 
+    public void Disconnect()
+    {
+        socket.Close();
+        stream = null;
+        receiveBuffer = null;
+        socket = null;
+    }
+
     public void SendMessage(string message)
     {
         try
@@ -70,6 +78,8 @@ public class TCP
     {
         try
         {
+            if (stream == null) return;
+
             int byteLength = stream.EndRead(_result);
             if (byteLength <= 0)
             {
