@@ -1,4 +1,6 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Net.Sockets;
 using UnityEngine;
 
@@ -6,9 +8,16 @@ public class TCP
 {
     public TcpClient socket;
 
+    // Must precisely match the server tickrate!
+    // This is the time between each tick in milliseconds.
+    // 30 ticks per 1 second - 33.3333ms per tick (1000 / 30)
+    public float timeBetweenTicksMs = 33.3333f;
+
     private NetworkStream stream;
     private byte[] receiveBuffer;
     private bool canWrite = true;
+
+    private Dictionary<PacketManager.PacketDataType, string> messageQueue = new Dictionary<PacketManager.PacketDataType, string>();
 
     public void Connect()
     {
@@ -30,26 +39,53 @@ public class TCP
         socket = null;
     }
 
-    public void SendMessage(string message)
+    public void SendMessage(PacketManager.PacketDataType messageType, string message)
     {
-        try
+        if (messageQueue.ContainsKey(messageType))
         {
-            if (canWrite && message != null && socket != null)
-            {
-                stream = socket.GetStream();
-                if (stream.CanWrite)
-                {
-                    canWrite = false;
-                    byte[] data = System.Text.Encoding.ASCII.GetBytes(message);
-                    stream.BeginWrite(data, 0, data.Length, WriteFinishedCallback, null);
-                }
-            }
+            messageQueue[messageType] = message;
         }
-        catch (Exception ex)
+        else
         {
-            Debug.LogError($"Error sending data to server via TCP: {ex}");
+            messageQueue.Add(messageType, message);
         }
     }
+
+    private IEnumerator MessageQueueProcessor()
+    {
+        while (true)
+        {
+            float tickStartTimeSeconds = Time.time;
+
+            if (messageQueue.Count > 0)
+            {
+                foreach (KeyValuePair<PacketManager.PacketDataType, string> message in messageQueue)
+                {
+                    try
+                    {
+                        if (canWrite && message.Value != null && socket != null)
+                        {
+                            stream = socket.GetStream();
+                            if (stream.CanWrite)
+                            {
+                                canWrite = false;
+                                byte[] data = System.Text.Encoding.ASCII.GetBytes(message.Value);
+                                stream.BeginWrite(data, 0, data.Length, WriteFinishedCallback, null);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError($"Error sending data to server via TCP: {ex}");
+                    }
+                }
+
+                messageQueue.Clear();
+            }
+
+            yield return new WaitForSeconds((timeBetweenTicksMs / 1000) - (Time.time - tickStartTimeSeconds));
+        }
+    } 
 
     private void WriteFinishedCallback(IAsyncResult result) 
     {
@@ -72,6 +108,8 @@ public class TCP
         stream = socket.GetStream();
 
         stream.BeginRead(receiveBuffer, 0, NetworkManager.dataBufferSize, ReceiveCallback, null);
+
+        NetworkManager.instance.StartCoroutine(MessageQueueProcessor());
     }
 
     private void ReceiveCallback(IAsyncResult _result)

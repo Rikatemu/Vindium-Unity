@@ -92,6 +92,6 @@ public static class PacketManager
 
         string message = JsonUtility.ToJson(packet);
 
-        NetworkManager.instance.tcp.SendMessage(message);
+        NetworkManager.instance.tcp.SendMessage(PacketDataType.Transform, message);
     }
 }
