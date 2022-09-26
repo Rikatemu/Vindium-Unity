@@ -386,3 +386,4 @@ MonoBehaviour:
   meshRenderer: {fileID: 8222704298196350162}
   cam: {fileID: 203940332}
   mouseLook: {fileID: 1025937463}
+  rb: {fileID: 7749156261587054114}

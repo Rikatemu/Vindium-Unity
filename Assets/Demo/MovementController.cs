@@ -5,6 +5,7 @@ public class MovementController : NetworkBehaviour
     public MeshRenderer meshRenderer;
     public GameObject cam;
     public MouseLook mouseLook;
+    public Rigidbody rb;
 
     private void Start()
     {
@@ -14,6 +15,9 @@ public class MovementController : NetworkBehaviour
         {
             cam.SetActive(true);
             mouseLook.enabled = true;
+        } else {
+            rb.useGravity = false;
+            rb.isKinematic = true;
         }
     }
 
