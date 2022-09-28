@@ -6,15 +6,20 @@ using UnityEngine;
 /// <summary>Network manager that handles communication with the server.</summary>
 public class NetworkManager : MonoBehaviour
 {
-    public static NetworkManager instance;
-    public static int dataBufferSize = 4096;
+    // Must precisely match the server tickrate!
+    // This is the time between each tick in milliseconds.
+    // 30 ticks per 1 second - 33.3333ms per tick (1000 / 30)
+    public const float TIME_BETWEEN_TICKS_MS = 33.3333f;
+    public const int DATA_BUFFER_SIZE = 2048;
 
+    public static NetworkManager instance;
     public string ipAddress = "127.0.0.1";
     public int port = 8080;
     public bool autoConnect = true;
     public GameObject playerPrefab;
 
     [HideInInspector] public TCP tcp;
+    [HideInInspector] public UDP udp;
     [HideInInspector] public bool connected = false;
     [HideInInspector] public IPAddress ip;
     [HideInInspector] public Dictionary<string, GameObject> entities = new Dictionary<string, GameObject>();
@@ -54,6 +59,7 @@ public class NetworkManager : MonoBehaviour
     private void Start()
     {
         tcp = new TCP();
+        udp = new UDP();
 
         if (autoConnect)
         {
@@ -115,12 +121,13 @@ public class NetworkManager : MonoBehaviour
 
     private void Connect()
     {
-        tcp.Connect();
+        tcp.ConnectTCP();
     }
 
     private void Disconnect()
     {
-        tcp.Disconnect();
+        tcp.DisconnectTCP();
+        udp.DisconnectUDP();
     }
 
     private void SpawnEntity(string entityId)

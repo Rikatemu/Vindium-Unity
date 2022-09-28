@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Sockets;
 using UnityEngine;
 
@@ -8,30 +9,25 @@ public class TCP
 {
     public TcpClient socket;
 
-    // Must precisely match the server tickrate!
-    // This is the time between each tick in milliseconds.
-    // 30 ticks per 1 second - 33.3333ms per tick (1000 / 30)
-    public float timeBetweenTicksMs = 33.3333f;
-
     private NetworkStream stream;
     private byte[] receiveBuffer;
     private bool canWrite = true;
 
     private Dictionary<PacketManager.PacketDataType, string> messageQueue = new Dictionary<PacketManager.PacketDataType, string>();
 
-    public void Connect()
+    public void ConnectTCP()
     {
         socket = new TcpClient
         {
-            ReceiveBufferSize = NetworkManager.dataBufferSize,
-            SendBufferSize = NetworkManager.dataBufferSize
+            ReceiveBufferSize = NetworkManager.DATA_BUFFER_SIZE,
+            SendBufferSize = NetworkManager.DATA_BUFFER_SIZE
         };
 
-        receiveBuffer = new byte[NetworkManager.dataBufferSize];
+        receiveBuffer = new byte[NetworkManager.DATA_BUFFER_SIZE];
         var test = socket.BeginConnect(NetworkManager.instance.ip, NetworkManager.instance.port, ConnectCallback, socket);
     }
 
-    public void Disconnect()
+    public void DisconnectTCP()
     {
         socket.Close();
         stream = null;
@@ -39,7 +35,7 @@ public class TCP
         socket = null;
     }
 
-    public void SendMessage(PacketManager.PacketDataType messageType, string message)
+    public void SendMessageTCP(PacketManager.PacketDataType messageType, string message)
     {
         if (messageQueue.ContainsKey(messageType))
         {
@@ -83,7 +79,7 @@ public class TCP
                 messageQueue.Clear();
             }
 
-            yield return new WaitForSeconds((timeBetweenTicksMs / 1000) - (Time.time - tickStartTimeSeconds));
+            yield return new WaitForSeconds((NetworkManager.TIME_BETWEEN_TICKS_MS / 1000) - (Time.time - tickStartTimeSeconds));
         }
     } 
 
@@ -107,8 +103,10 @@ public class TCP
 
         stream = socket.GetStream();
 
-        stream.BeginRead(receiveBuffer, 0, NetworkManager.dataBufferSize, ReceiveCallback, null);
+        stream.BeginRead(receiveBuffer, 0, NetworkManager.DATA_BUFFER_SIZE, ReceiveCallback, null);
 
+        Debug.Log($"TCP Socket created on port {((IPEndPoint)socket.Client.LocalEndPoint).Port}");
+        NetworkManager.instance.udp.ConnectUDP(((IPEndPoint)socket.Client.LocalEndPoint).Port);
         NetworkManager.instance.StartCoroutine(MessageQueueProcessor());
     }
 
@@ -148,25 +146,13 @@ public class TCP
             else
             {
                 PacketManager.Packet packet = JsonUtility.FromJson<PacketManager.Packet>(message);
-                PacketManager.PacketDataType packetData = (PacketManager.PacketDataType) System.Enum.Parse(typeof(PacketManager.PacketDataType), packet.ptype);
-
-                switch (packetData)
-                {
-                    case PacketManager.PacketDataType.Spawn:
-                        PacketHandler.HandleSpawn(packet, NetworkManager.instance);
-                    break;
-                    case PacketManager.PacketDataType.Disconnect:
-                        PacketHandler.HandleDisconnect(packet, NetworkManager.instance);
-                    break;
-                    case PacketManager.PacketDataType.Transform:
-                        PacketHandler.HandleTransform(packet, NetworkManager.instance);
-                    break;
-                }
+                
+                PacketHandler.HandlePacket(packet, NetworkManager.instance);
             }
 
-            receiveBuffer = new byte[NetworkManager.dataBufferSize];
+            receiveBuffer = new byte[NetworkManager.DATA_BUFFER_SIZE];
 
-            stream.BeginRead(receiveBuffer, 0, NetworkManager.dataBufferSize, ReceiveCallback, null);
+            stream.BeginRead(receiveBuffer, 0, NetworkManager.DATA_BUFFER_SIZE, ReceiveCallback, null);
         }
         catch (Exception ex)
         {

@@ -1,3 +1,4 @@
+using System.Text;
 using UnityEngine;
 
 public static class PacketManager
@@ -91,7 +92,8 @@ public static class PacketManager
         packet.owner_only = false;
 
         string message = JsonUtility.ToJson(packet);
+        byte[] data = Encoding.ASCII.GetBytes(message);
 
-        NetworkManager.instance.tcp.SendMessage(PacketDataType.Transform, message);
+        NetworkManager.instance.udp.SendMessageUDP(PacketDataType.Transform, message);
     }
 }
